@@ -24,21 +24,21 @@ class ClientsGroup(object):
         self.class_num=class_num
 
 class client(object):
-    def __init__(self,trainDataSet,dev,num_example):
-        self.train_ds=trainDataSet
-        self.dev=dev
-        self.train_dl=None
-        self.num_example=num_example
-        self.state={}
+    def __init__(self, trainDataSet, dev, num_example):
+        self.train_ds = trainDataSet
+        self.dev = dev
+        self.train_dl = None
+        self.num_example = num_example
+        self.state = {}
 
-    def localUpdate(self,localBatchSize,localepoch,Net,lossFun,opti,global_parameters):
-        Net.load_state_dict(global_parameters,strict=True)
-        self.train_dl=DataLoader(self.train_ds,batch_size=localBatchSize,shuffle=True)
+    def localUpdate(self, localBatchSize, localepoch, Net, lossFun, opti, global_parameters):
+        Net.load_state_dict(global_parameters, strict=True)
+        self.train_dl = DataLoader(self.train_ds, batch_size=localBatchSize, shuffle=True)
         for epoch in range(localepoch):
-            for data,label in self.train_dl:
-                data,label=data.to(self.dev),label.to(self.dev)
-                preds=Net(data)
-                loss=lossFun(preds,label)
+            for data, label in self.train_dl:
+                data, label = data.to(self.dev), label.to(self.dev)
+                preds = Net(data)
+                loss = lossFun(preds, label)
                 loss.backward()
                 opti.step()
                 opti.zero_grad()

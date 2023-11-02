@@ -15,7 +15,7 @@ def testfile():
     data=[]
     replacedict={'Sun':[1,0,0,0,0,0,0],'Sat':[0,1,0,0,0,0,0],'Fri':[0,0,1,0,0,0,0],'Thurs':[0,0,0,1,0,0,0],'Wed':[0,0,0,0,1,0,0],'Tues':[0,0,0,0,0,1,0],'Mon':[0,0,0,0,0,0,1]}
     with open(filename) as csvfile:
-        csv_reader=csv.reader(csvfile)
+        csv_reader = csv.reader(csvfile)
         for row in csv_reader:
             if row[3] in replacedict:
                 rownew=row+replacedict[row[3]]
@@ -28,12 +28,13 @@ def testfile():
     random.shuffle(data_int)
     return data_int
 
+
 def trainfile():
     filename='./train.csv'
     data=[]
     replacedict={'Sun':[1,0,0,0,0,0,0],'Sat':[0,1,0,0,0,0,0],'Fri':[0,0,1,0,0,0,0],'Thurs':[0,0,0,1,0,0,0],'Wed':[0,0,0,0,1,0,0],'Tues':[0,0,0,0,0,1,0],'Mon':[0,0,0,0,0,0,1]}
     with open(filename) as csvfile:
-        csv_reader=csv.reader(csvfile)
+        csv_reader = csv.reader(csvfile)
         for row in csv_reader:
             if row[3] in replacedict:
                 rownew=replacedict[row[3]]+row

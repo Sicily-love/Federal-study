@@ -3,83 +3,105 @@ import model
 import torch
 import client
 import argparse
+import config_logger
 import torch.nn as nn
-from tqdm import tqdm
 import torch.optim as optim
 
-parser = argparse.ArgumentParser(description="Distributed Learning Parameters")
 
-# 添加命令行参数
-parser.add_argument("--num_clients", type=int, default=20, help="Number of clients")
-parser.add_argument("--global_epochs", type=int, default=15, help="Number of global epochs")
-parser.add_argument("--local_epochs", type=int, default=3, help="Number of local epochs")
+logger = config_logger.logger
+
+loss_functions = {
+    "mse": nn.MSELoss(),
+    "cross_entropy": nn.CrossEntropyLoss(),
+    "huber_loss": torch.nn.SmoothL1Loss(),  # Huber Loss
+    "negative_log_likelihood": nn.NLLLoss(),
+}
+
+optimizers = {
+    "sgd": optim.SGD,
+    "adam": optim.Adam,
+    "rmsprop": optim.RMSprop,
+    "adagrad": optim.Adagrad,
+    "lbfgs": optim.LBFGS,
+}
+
+parser = argparse.ArgumentParser(description="Distributed Learning Parameters")
+parser.add_argument("--num_clients", type=int, default=10, help="Number of clients")
+parser.add_argument("--global_epochs", type=int, default=10, help="Number of global epochs")
+parser.add_argument("--local_epochs", type=int, default=5, help="Number of local epochs")
 parser.add_argument("--batch_size", type=int, default=32, help="Batch size")
 parser.add_argument("--learning_rate", type=float, default=0.01, help="Learning rate")
+parser.add_argument("--loss", choices=loss_functions.keys(), default="mse", help="Loss function (default: MSE)")
+parser.add_argument("--optimizer", choices=optimizers.keys(), default="sgd", help="Optimizer (default: SGD)")
+parser.add_argument("--hidden_dim", type=int, default=64, help="Hidden layer dimension (default: 128)")
 
-# 解析命令行参数
+
 args = parser.parse_args()
 
-global_model = model.SimpleModel(13, 64, 1)
+Net = model.SimpleModel(13, args.hidden_dim, 1)
+global_parameters = Net.state_dict()
+criterion = loss_functions[args.loss]
+optimizer = optimizers[args.optimizer](Net.parameters(), lr=args.learning_rate)
 
-# 定义损失函数和优化器
-criterion = nn.MSELoss()
-optimizer = optim.SGD(global_model.parameters(), lr=args.learning_rate)
-data = load.getdata()
+train_data = load.trainfile()
+CG = client.ClientsGroup(dev="cuda:0" if torch.cuda.is_available() else "cpu", class_num=args.num_clients)
+CG.clients_set = client.datasetBalanceAllocation(args.num_clients, train_data)
 
-ClientsGroup = client.ClientsGroup("cuda:0" if torch.cuda.is_available() else "cpu", args.num_clients, data)
 
-dataloader = []
-# 边缘计算与本地聚合
 for epoch in range(args.global_epochs):
+    states = []
     for i in range(args.num_clients):
-        for j in range(args.local_epochs):
-            running_loss = 0.0
-            for inputs, labels in tqdm(dataloader, desc=f"Epoch {epoch + 1}/{args.local_epoch}", ncols=100, dynamic_ncols=True):
-                # 将梯度置零
-                optimizer.zero_grad()
+        client_name = "client" + str(i)
+        client_state = CG.clients_set[client_name].localUpdate(
+            args.batch_size,
+            args.local_epochs,
+            Net,
+            criterion,
+            optimizer,
+            global_parameters,
+        )
+        states.append(client_state)
+    logger.info(f"{epoch + 1}th training finished")
 
-                # 前向传播
-                outputs = model(inputs)
+    for param_tensor in global_parameters:
+        global_parameters[param_tensor] -= global_parameters[param_tensor]
 
-                # 计算损失
-                loss = criterion(outputs, labels)
+    for state in states:
+        for param_tensor in global_parameters:
+            global_parameters[param_tensor] = state[param_tensor] / len(states)
 
-                # 反向传播和优化
-                loss.backward()
-                optimizer.step()
-
-                running_loss += loss.item()
-
-            # 每个epoch结束后打印损失
-            print(f"Epoch {epoch + 1}, Loss: {running_loss / len(dataloader)}")
-
-            print("Training finished")
-    # TODO Model aggregation
-    # # 聚合本地模型到全局模型
-    # global_model.zero_grad()
-    # for client in clients:
-    #     for global_param, local_param in zip(global_model.parameters(), client.model.parameters()):
-    #         global_param.data += local_param.data / num_clients
-    # TODO parallel
+Net.load_state_dict(global_parameters)
 
 
-# 验证拟合和预测
-def validate(model, data):
-    # 这里可以使用验证数据来评估模型性能
-    pass
+def validate(model, val_dataloader, dev):
+    # 设置模型为评估模式
+    Net.eval()
 
+    total_loss = 0.0
+    correct = 0
+    total_samples = 0
 
-validation_data = []
-validate(global_model, validation_data)
-
-
-# 使用全局模型进行预测
-def predict(model, input_data):
-    model.eval()
     with torch.no_grad():
-        return model(input_data)
+        for data, labels in val_dataloader:
+            data, labels = data.to(dev), labels.to(dev)
+
+            outputs = model(data)
+            loss = criterion(outputs, labels)
+            total_loss += loss.item()
+
+            # 计算准确性
+            _, predicted = torch.max(outputs, 1)
+            correct += (predicted == labels).sum().item()
+            total_samples += labels.size(0)
+
+    # 计算平均损失和准确性
+    avg_loss = total_loss / len(val_dataloader)
+    accuracy = (correct / total_samples) * 100.0
+
+    print(f"Validation Loss: {avg_loss:.4f}, Accuracy: {accuracy:.2f}%")
+
+    return avg_loss, accuracy
 
 
-input_data = torch.randn(10, 13)  # 替换为实际输入数据
-predictions = predict(global_model, input_data)
-print("Predictions:", predictions)
+# test_data = load.testfile()
+# validate(Net, test_data, "cuda:0" if torch.cuda.is_available() else "cpu")

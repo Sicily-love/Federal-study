@@ -1,6 +1,7 @@
 import load
 import torch
 import config_logger
+import numpy as np
 from tqdm import tqdm
 from torch.utils.data import DataLoader
 from torch.utils.data import TensorDataset
@@ -17,14 +18,20 @@ client.num_example不知道是干什么的,照抄过来了
 
 def datasetBalanceAllocation(class_num, data):
     clients_set = {}
+    #生成一个随机的权重列表
+    avgnum=3000/class_num
+    weights_list=[avgnum]*(class_num-1)
+    weights_list=np.sum([weights_list, np.random.randint(-0.5*avgnum,0.5*avgnum,class_num-1)], axis=0).tolist()
+    weights_list.append(3000-sum(weights_list))
+
     for i in range(class_num):
-        feature, label = load.getdata(data, i, class_num)
+        feature, label = load.getdata(data, i, weights_list)
         someone = client(
             TensorDataset(torch.tensor(feature, dtype=torch.float, requires_grad=True), torch.tensor(label, dtype=torch.float, requires_grad=True)),
             torch.device("cuda:0" if torch.cuda.is_available() else "cpu"),
         )
         clients_set["client{}".format(i)] = someone
-    return clients_set
+    return clients_set,weights_list
 
 
 class ClientsGroup(object):

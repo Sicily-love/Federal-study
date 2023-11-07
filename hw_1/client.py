@@ -12,26 +12,31 @@ logger = config_logger.logger
 """
 datasetBalanceAllocation分到了ClientGroup类外面,用法见main.py
 client类被字典CG.clients_set索引
-client.num_example不知道是干什么的,照抄过来了
 """
 
 
 def datasetBalanceAllocation(class_num, data):
     clients_set = {}
-    #生成一个随机的权重列表
-    avgnum=3000/class_num
-    weights_list=[avgnum]*(class_num-1)
-    weights_list=np.sum([weights_list, np.random.randint(-0.5*avgnum,0.5*avgnum,class_num-1)], axis=0).tolist()
-    weights_list.append(3000-sum(weights_list))
+    # 生成一个随机的权重列表
+    avgnum = 3000 / class_num
+    weights_list = [avgnum] * (class_num - 1)
+    weights_list = np.sum(
+        [weights_list, np.random.randint(-0.5 * avgnum, 0.5 * avgnum, class_num - 1)],
+        axis=0,
+    ).tolist()
+    weights_list.append(3000 - sum(weights_list))
 
     for i in range(class_num):
         feature, label = load.getdata(data, i, weights_list)
         someone = client(
-            TensorDataset(torch.tensor(feature, dtype=torch.float, requires_grad=True), torch.tensor(label, dtype=torch.float, requires_grad=True)),
+            TensorDataset(
+                torch.tensor(feature, dtype=torch.float, requires_grad=True),
+                torch.tensor(label, dtype=torch.float, requires_grad=True),
+            ),
             torch.device("cuda:0" if torch.cuda.is_available() else "cpu"),
         )
         clients_set["client{}".format(i)] = someone
-    return clients_set,weights_list
+    return clients_set, weights_list
 
 
 class ClientsGroup(object):
@@ -48,12 +53,21 @@ class client(object):
         self.train_dl = None
         self.state = {}
 
-    def localUpdate(self, localBatchSize, localepoch, Net, lossFun, opti, global_parameters):
+    def localUpdate(
+        self, localBatchSize, localepoch, Net, lossFun, opti, global_parameters
+    ):
         Net.load_state_dict(global_parameters, strict=True)
         running_loss = 0.0
-        self.train_dl = DataLoader(self.train_ds, batch_size=localBatchSize, shuffle=True, drop_last=True)
+        self.train_dl = DataLoader(
+            self.train_ds, batch_size=localBatchSize, shuffle=True, drop_last=True
+        )
         for epoch in range(localepoch):
-            progress_bar = tqdm(self.train_dl, desc=f"Epoch {epoch + 1}/{localepoch}", ncols=100, dynamic_ncols=True)
+            progress_bar = tqdm(
+                self.train_dl,
+                desc=f"Epoch {epoch + 1}/{localepoch}",
+                ncols=100,
+                dynamic_ncols=True,
+            )
             for data, label in progress_bar:
                 data, label = data.to(self.dev), label.to(self.dev)
                 opti.zero_grad()
@@ -66,7 +80,7 @@ class client(object):
                 progress_bar.set_postfix(loss=f"{loss.item():.4f}", refresh=True)
                 progress_bar.update(1)
 
-        logger.info(f"Average Loss: {running_loss / len(self.train_dl)}")
-        Net.zero_grad()
+        logger.info(f"Average Loss: {running_loss / (len(self.train_dl)*localepoch)}")
+        # Net.zero_grad()
 
         return Net.state_dict()

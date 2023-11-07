@@ -6,6 +6,8 @@ import argparse
 import config_logger
 import torch.nn as nn
 import torch.optim as optim
+from torch.utils.data import DataLoader
+from torch.utils.data import TensorDataset
 
 
 logger = config_logger.logger
@@ -45,7 +47,7 @@ optimizer = optimizers[args.optimizer](Net.parameters(), lr=args.learning_rate)
 
 train_data = load.trainfile()
 CG = client.ClientsGroup(dev="cuda:0" if torch.cuda.is_available() else "cpu", class_num=args.num_clients)
-CG.clients_set = client.datasetBalanceAllocation(args.num_clients, train_data)
+CG.clients_set, _ = client.datasetBalanceAllocation(args.num_clients, train_data)
 
 
 for epoch in range(args.global_epochs):
@@ -103,5 +105,8 @@ def validate(model, val_dataloader, dev):
     return avg_loss, accuracy
 
 
-# test_data = load.testfile()
-# validate(Net, test_data, "cuda:0" if torch.cuda.is_available() else "cpu")
+test_data = load.testfile()
+feature, label = load.actualsplit(test_data)
+test_ds=TensorDataset(torch.tensor(feature, dtype=torch.float, requires_grad=True), torch.tensor(label, dtype=torch.float, requires_grad=True))
+test_dl=DataLoader(test_ds, batch_size=args.batch_size, shuffle=True, drop_last=True)
+validate(Net, test_dl, "cuda:0" if torch.cuda.is_available() else "cpu")

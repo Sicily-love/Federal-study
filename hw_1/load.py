@@ -16,7 +16,7 @@ def testfile():
     data = []
     replacedict = {"Sun": [1, 0, 0, 0, 0, 0, 0], "Sat": [0, 1, 0, 0, 0, 0, 0], "Fri": [0, 0, 1, 0, 0, 0, 0], "Thurs": [0, 0, 0, 1, 0, 0, 0], "Wed": [0, 0, 0, 0, 1, 0, 0], "Tues": [0, 0, 0, 0, 0, 1, 0], "Mon": [0, 0, 0, 0, 0, 0, 1]}
     with open(filename) as csvfile:
-        csv_reader = csv.reader(csvfile)
+        csv_reader=csv.reader(csvfile)
         for row in csv_reader:
             if row[3] in replacedict:
                 rownew = row + replacedict[row[3]]
@@ -29,13 +29,12 @@ def testfile():
     random.shuffle(data_int)
     return data_int
 
-
 def trainfile():
     filename = "./train.csv"
     data = []
     replacedict = {"Sun": [1, 0, 0, 0, 0, 0, 0], "Sat": [0, 1, 0, 0, 0, 0, 0], "Fri": [0, 0, 1, 0, 0, 0, 0], "Thurs": [0, 0, 0, 1, 0, 0, 0], "Wed": [0, 0, 0, 0, 1, 0, 0], "Tues": [0, 0, 0, 0, 0, 1, 0], "Mon": [0, 0, 0, 0, 0, 0, 1]}
     with open(filename) as csvfile:
-        csv_reader = csv.reader(csvfile)
+        csv_reader=csv.reader(csvfile)
         for row in csv_reader:
             if row[3] in replacedict:
                 rownew = replacedict[row[3]] + row
@@ -59,9 +58,8 @@ def actualsplit(data):
     return feature, label
 
 
-def getdata(data, i, class_num):
-    num_per_client = 3000 / class_num
-    data_new = data[int(i * num_per_client) : int(i * num_per_client + num_per_client)]
+def getdata(data, i, weights):
+    data_new = data[int(sum(weights[:i])) : int(sum(weights[:i+1]))]
     feature, label = actualsplit(data_new)
     feature_std = preprocessing.StandardScaler().fit_transform(feature)
     label_std = preprocessing.StandardScaler().fit_transform(label)

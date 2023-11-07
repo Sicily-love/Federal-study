@@ -18,13 +18,17 @@ client类被字典CG.clients_set索引
 def datasetBalanceAllocation(class_num, data):
     clients_set = {}
     # 生成一个随机的权重列表
-    avgnum = 3000 / class_num
-    weights_list = [avgnum] * (class_num - 1)
-    weights_list = np.sum(
-        [weights_list, np.random.randint(-0.5 * avgnum, 0.5 * avgnum, class_num - 1)],
-        axis=0,
-    ).tolist()
-    weights_list.append(3000 - sum(weights_list))
+    s=3001
+    while s > 2900:
+        avgnum = 3000 / class_num
+        weights_list = [avgnum] * (class_num - 1)
+        weights_list = np.sum(
+            [weights_list, np.random.randint(-0.5 * avgnum, 0.5 * avgnum, class_num - 1)],
+            axis=0,
+        ).tolist()
+        weights_list.append(3000 - sum(weights_list))
+        s=sum(weights_list[:class_num-1])
+
 
     for i in range(class_num):
         feature, label = load.getdata(data, i, weights_list)

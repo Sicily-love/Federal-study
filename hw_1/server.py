@@ -8,6 +8,7 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
 from torch.utils.data import TensorDataset
+from sklearn import preprocessing
 
 
 logger = config_logger.logger
@@ -123,8 +124,9 @@ def validate(model, val_dataloader, dev):
 
 test_data = load.testfile()
 feature, label = load.actualsplit(test_data)
+feature_std = preprocessing.StandardScaler().fit_transform(feature)
 test_ds = TensorDataset(
-    torch.tensor(feature, dtype=torch.float, requires_grad=False),
+    torch.tensor(feature_std, dtype=torch.float, requires_grad=False),
     torch.tensor(label, dtype=torch.float, requires_grad=False),
 )
 test_dl = DataLoader(test_ds, batch_size=args.batch_size, shuffle=True, drop_last=True)

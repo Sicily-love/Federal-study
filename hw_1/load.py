@@ -27,8 +27,8 @@ def testfile():
         csv_reader = csv.reader(csvfile)
         for row in csv_reader:
             if row[3] in replacedict:
-                rownew = row + replacedict[row[3]]
-                del rownew[3]
+                rownew = replacedict[row[3]] + row
+                del rownew[10]
             else:
                 rownew = row
             data.append(rownew)
@@ -69,8 +69,8 @@ def actualsplit(data):
     label = []
     feature = []
     for row in data:
-        label.append([row[-1]])
-        row.pop(-1)
+        label.append([row[13]])
+        row.pop(13)
         feature.append(row)
     return feature, label
 
@@ -79,5 +79,4 @@ def getdata(data, i, weights):
     data_new = data[int(sum(weights[:i])) : int(sum(weights[: i + 1]))]
     feature, label = actualsplit(data_new)
     feature_std = preprocessing.StandardScaler().fit_transform(feature)
-    label_std = preprocessing.StandardScaler().fit_transform(label)
-    return feature_std, label_std
+    return feature_std, label

@@ -15,7 +15,7 @@ logger = config_logger.logger
 loss_functions = {
     "mse": nn.MSELoss(),
     "cross_entropy": nn.CrossEntropyLoss(),
-    "huber_loss": torch.nn.SmoothL1Loss(),  # Huber Loss
+    "huber_loss": torch.nn.SmoothL1Loss(),
     "negative_log_likelihood": nn.NLLLoss(),
 }
 
@@ -29,13 +29,29 @@ optimizers = {
 
 parser = argparse.ArgumentParser(description="Distributed Learning Parameters")
 parser.add_argument("--num_clients", type=int, default=10, help="Number of clients")
-parser.add_argument("--global_epochs", type=int, default=10, help="Number of global epochs")
-parser.add_argument("--local_epochs", type=int, default=5, help="Number of local epochs")
+parser.add_argument(
+    "--global_epochs", type=int, default=1, help="Number of global epochs"
+)
+parser.add_argument(
+    "--local_epochs", type=int, default=20, help="Number of local epochs"
+)
 parser.add_argument("--batch_size", type=int, default=32, help="Batch size")
-parser.add_argument("--learning_rate", type=float, default=0.01, help="Learning rate")
-parser.add_argument("--loss", choices=loss_functions.keys(), default="mse", help="Loss function (default: MSE)")
-parser.add_argument("--optimizer", choices=optimizers.keys(), default="sgd", help="Optimizer (default: SGD)")
-parser.add_argument("--hidden_dim", type=int, default=64, help="Hidden layer dimension (default: 128)")
+parser.add_argument("--learning_rate", type=float, default=0.001, help="Learning rate")
+parser.add_argument(
+    "--loss",
+    choices=loss_functions.keys(),
+    default="mse",
+    help="Loss function (default: MSE)",
+)
+parser.add_argument(
+    "--optimizer",
+    choices=optimizers.keys(),
+    default="sgd",
+    help="Optimizer (default: SGD)",
+)
+parser.add_argument(
+    "--hidden_dim", type=int, default=64, help="Hidden layer dimension (default: 128)"
+)
 
 
 args = parser.parse_args()
@@ -46,8 +62,10 @@ criterion = loss_functions[args.loss]
 optimizer = optimizers[args.optimizer](Net.parameters(), lr=args.learning_rate)
 
 train_data = load.trainfile()
-CG = client.ClientsGroup(dev="cuda:0" if torch.cuda.is_available() else "cpu", class_num=args.num_clients)
-CG.clients_set, _ = client.datasetBalanceAllocation(args.num_clients, train_data)
+CG = client.ClientsGroup(
+    dev="cuda:0" if torch.cuda.is_available() else "cpu", class_num=args.num_clients
+)
+CG.clients_set, weights = client.datasetBalanceAllocation(args.num_clients, train_data)
 
 
 for epoch in range(args.global_epochs):
@@ -70,13 +88,12 @@ for epoch in range(args.global_epochs):
 
     for state in states:
         for param_tensor in global_parameters:
-            global_parameters[param_tensor] = state[param_tensor] / len(states)
+            global_parameters[param_tensor] += state[param_tensor] / len(states)
 
 Net.load_state_dict(global_parameters)
 
 
 def validate(model, val_dataloader, dev):
-    # 设置模型为评估模式
     Net.eval()
 
     total_loss = 0.0
@@ -91,12 +108,11 @@ def validate(model, val_dataloader, dev):
             loss = criterion(outputs, labels)
             total_loss += loss.item()
 
-            # 计算准确性
-            _, predicted = torch.max(outputs, 1)
-            correct += (predicted == labels).sum().item()
+            correct += (outputs == labels).sum().item()
+            print((outputs == labels).shape)
+            print(outputs == labels)
             total_samples += labels.size(0)
 
-    # 计算平均损失和准确性
     avg_loss = total_loss / len(val_dataloader)
     accuracy = (correct / total_samples) * 100.0
 
@@ -107,6 +123,9 @@ def validate(model, val_dataloader, dev):
 
 test_data = load.testfile()
 feature, label = load.actualsplit(test_data)
-test_ds=TensorDataset(torch.tensor(feature, dtype=torch.float, requires_grad=True), torch.tensor(label, dtype=torch.float, requires_grad=True))
-test_dl=DataLoader(test_ds, batch_size=args.batch_size, shuffle=True, drop_last=True)
+test_ds = TensorDataset(
+    torch.tensor(feature, dtype=torch.float, requires_grad=False),
+    torch.tensor(label, dtype=torch.float, requires_grad=False),
+)
+test_dl = DataLoader(test_ds, batch_size=args.batch_size, shuffle=True, drop_last=True)
 validate(Net, test_dl, "cuda:0" if torch.cuda.is_available() else "cpu")

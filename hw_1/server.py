@@ -30,10 +30,10 @@ optimizers = {
 parser = argparse.ArgumentParser(description="Distributed Learning Parameters")
 parser.add_argument("--num_clients", type=int, default=10, help="Number of clients")
 parser.add_argument(
-    "--global_epochs", type=int, default=1, help="Number of global epochs"
+    "--global_epochs", type=int, default=10, help="Number of global epochs"
 )
 parser.add_argument(
-    "--local_epochs", type=int, default=20, help="Number of local epochs"
+    "--local_epochs", type=int, default=5, help="Number of local epochs"
 )
 parser.add_argument("--batch_size", type=int, default=32, help="Batch size")
 parser.add_argument("--learning_rate", type=float, default=0.001, help="Learning rate")

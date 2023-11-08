@@ -76,6 +76,7 @@ def actualsplit(data):
 
 
 def getdata(data, i, weights):
+    random.shuffle(data)
     data_new = data[int(sum(weights[:i])) : int(sum(weights[: i + 1]))]
     feature, label = actualsplit(data_new)
     feature_std = preprocessing.StandardScaler().fit_transform(feature)

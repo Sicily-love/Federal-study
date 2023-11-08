@@ -27,7 +27,7 @@ optimizers = {
 }
 
 
-def datasetBalanceAllocation(class_num, data):
+def datasetBalanceAllocation(class_num, train_data, test_data):
     clients_set = {}
     s = 3001
     while s > 2900:
@@ -38,14 +38,14 @@ def datasetBalanceAllocation(class_num, data):
         s = sum(weights_list[: class_num - 1])
 
     for i in range(class_num):
-        feature, label = load.getdata(data, i, weights_list)
+        train_feature, train_label, test_feature, test_label = load.getdata(train_data, test_data, i, weights_list)
         trainDataSet = TensorDataset(
-            torch.tensor(feature, dtype=torch.float, requires_grad=True),
-            torch.tensor(label, dtype=torch.float, requires_grad=True),
+            torch.tensor(train_feature, dtype=torch.float, requires_grad=True),
+            torch.tensor(train_label, dtype=torch.float, requires_grad=True),
         )
         someone = client(trainDataSet, i + 1, torch.device("cuda:0" if torch.cuda.is_available() else "cpu"))
         clients_set["client{}".format(i)] = someone
-    return clients_set, weights_list
+    return clients_set, weights_list, test_feature, test_label
 
 
 class ClientsGroup(object):

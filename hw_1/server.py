@@ -6,7 +6,6 @@ import argparse
 import numpy as np
 import config_logger
 import torch.nn as nn
-from sklearn import preprocessing
 from torch.utils.data import DataLoader
 from torch.utils.data import TensorDataset
 
@@ -30,8 +29,9 @@ parser.add_argument("--hidden_dim", type=int, default=64, help="Hidden layer dim
 args = parser.parse_args()
 
 train_data = load.trainfile()
+test_data = load.testfile()
 CG = client.ClientsGroup(dev="cuda:0" if torch.cuda.is_available() else "cpu", class_num=args.num_clients)
-CG.clients_set, weights = client.datasetBalanceAllocation(args.num_clients, train_data)
+CG.clients_set, weights, test_feature, test_label = client.datasetBalanceAllocation(args.num_clients, train_data, test_data)
 print(weights)
 print(np.array(weights) / sum(weights))
 
@@ -88,12 +88,9 @@ def validate(model, dataloader, dev):
     return average_loss
 
 
-test_data = load.testfile()
-feature, label = load.actualsplit(test_data)
-feature_std = preprocessing.StandardScaler().fit_transform(feature)
 testdataset = TensorDataset(
-    torch.tensor(feature_std, dtype=torch.float, requires_grad=False),
-    torch.tensor(label, dtype=torch.float, requires_grad=False),
+    torch.tensor(test_feature, dtype=torch.float, requires_grad=False),
+    torch.tensor(test_label, dtype=torch.float, requires_grad=False),
 )
 testdataloader = DataLoader(testdataset, batch_size=args.batch_size, shuffle=True, drop_last=True)
 validate(Net, testdataloader, "cuda:0" if torch.cuda.is_available() else "cpu")

@@ -8,7 +8,6 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
 from torch.utils.data import TensorDataset
-from sklearn import preprocessing
 
 
 logger = config_logger.logger
@@ -63,10 +62,11 @@ criterion = loss_functions[args.loss]
 optimizer = optimizers[args.optimizer](Net.parameters(), lr=args.learning_rate)
 
 train_data = load.trainfile()
+test_data = load.testfile()
 CG = client.ClientsGroup(
     dev="cuda:0" if torch.cuda.is_available() else "cpu", class_num=args.num_clients
 )
-CG.clients_set, weights = client.datasetBalanceAllocation(args.num_clients, train_data)
+CG.clients_set, weights, test_feature, test_label= client.datasetBalanceAllocation(args.num_clients, train_data, test_data)
 
 
 for epoch in range(args.global_epochs):
@@ -122,12 +122,9 @@ def validate(model, val_dataloader, dev):
     return avg_loss, accuracy
 
 
-test_data = load.testfile()
-feature, label = load.actualsplit(test_data)
-feature_std = preprocessing.StandardScaler().fit_transform(feature)
 test_ds = TensorDataset(
-    torch.tensor(feature_std, dtype=torch.float, requires_grad=False),
-    torch.tensor(label, dtype=torch.float, requires_grad=False),
+    torch.tensor(test_feature, dtype=torch.float, requires_grad=False),
+    torch.tensor(test_label, dtype=torch.float, requires_grad=False),
 )
 test_dl = DataLoader(test_ds, batch_size=args.batch_size, shuffle=True, drop_last=True)
 validate(Net, test_dl, "cuda:0" if torch.cuda.is_available() else "cpu")

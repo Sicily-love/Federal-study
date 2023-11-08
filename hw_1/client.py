@@ -15,7 +15,7 @@ client类被字典CG.clients_set索引
 """
 
 
-def datasetBalanceAllocation(class_num, data):
+def datasetBalanceAllocation(class_num, train_data, test_data):
     clients_set = {}
     # 生成一个随机的权重列表
     s=3001
@@ -31,16 +31,16 @@ def datasetBalanceAllocation(class_num, data):
 
 
     for i in range(class_num):
-        feature, label = load.getdata(data, i, weights_list)
+        train_feature, train_label ,test_feature, test_label = load.getdata(train_data, test_data, i, weights_list)
         someone = client(
             TensorDataset(
-                torch.tensor(feature, dtype=torch.float, requires_grad=True),
-                torch.tensor(label, dtype=torch.float, requires_grad=True),
+                torch.tensor(train_feature, dtype=torch.float, requires_grad=True),
+                torch.tensor(train_label, dtype=torch.float, requires_grad=True),
             ),
             torch.device("cuda:0" if torch.cuda.is_available() else "cpu"),
         )
         clients_set["client{}".format(i)] = someone
-    return clients_set, weights_list
+    return clients_set, weights_list, test_feature, test_label
 
 
 class ClientsGroup(object):

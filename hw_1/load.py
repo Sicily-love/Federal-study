@@ -70,13 +70,17 @@ def actualsplit(data):
     feature = []
     for row in data:
         label.append([row[13]])
-        row.pop(13)
-        feature.append(row)
+        feature.append(row[:13])
     return feature, label
 
 
-def getdata(data, i, weights):
-    data_new = data[int(sum(weights[:i])) : int(sum(weights[: i + 1]))]
-    feature, label = actualsplit(data_new)
-    feature_std = preprocessing.StandardScaler().fit_transform(feature)
-    return feature_std, label
+def getdata(train_data, test_data, i, weights):
+    A=preprocessing.StandardScaler()
+    train_feature , train_label = actualsplit(train_data)
+    train_label = train_label[int(sum(weights[:i])) : int(sum(weights[: i + 1]))]
+    train_feature = A.fit_transform(train_feature)
+    train_feature = train_feature[int(sum(weights[:i])) : int(sum(weights[: i + 1]))]
+
+    test_feature , test_label = actualsplit(test_data)
+    test_feature = A.transform(test_feature)
+    return train_feature, train_label , test_feature , test_label

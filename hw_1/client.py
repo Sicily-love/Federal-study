@@ -29,6 +29,7 @@ def datasetBalanceAllocation(class_num, train_data, test_data):
         weights_list.append(3000 - sum(weights_list))
         s=sum(weights_list[:class_num-1])
 
+
     for i in range(class_num):
         train_feature, train_label ,test_feature, test_label = load.getdata(train_data, test_data, i, weights_list)
         someone = client(

@@ -12,6 +12,7 @@ getdata(data,i,class_num):输入参数data为testfile的输出,class_num为客�
 
 
 def testfile():
+    random.seed()
     filename = "./test.csv"
     data = []
     replacedict = {
@@ -39,6 +40,7 @@ def testfile():
 
 
 def trainfile():
+    random.seed()
     filename = "./train.csv"
     data = []
     replacedict = {
@@ -75,6 +77,7 @@ def actualsplit(data):
 
 
 def getdata(train_data, test_data, i, weights):
+    random.seed()
     random.shuffle(train_data)
     A = preprocessing.StandardScaler()
     train_feature, train_label = actualsplit(train_data)

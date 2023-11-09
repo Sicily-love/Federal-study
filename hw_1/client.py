@@ -26,6 +26,13 @@ optimizers = {
     "lbfgs": optim.LBFGS,
 }
 
+lr_scheduler = {
+    "exp": optim.lr_scheduler.ExponentialLR,
+    "step": optim.lr_scheduler.StepLR,
+    "muti": optim.lr_scheduler.MultiStepLR,
+    "cos": optim.lr_scheduler.CosineAnnealingLR,
+}
+
 
 def datasetBalanceAllocation(class_num, train_data, test_data):
     clients_set = {}
@@ -63,22 +70,19 @@ class client(object):
         self.dataloader = None
         self.model = None
 
-    def model_config(self, hidden_dim, loss, optimizer, learning_rate):
+    def model_config(self, hidden_dim, loss, optimizer, learning_rate, scheduler):
         self.model = model.SimpleModel(13, hidden_dim, 1)
         self.criterion = loss_functions[loss]
-        self.optimizer = optimizers[optimizer](self.model.parameters(), lr=learning_rate)
-
-        for param in self.model.parameters():
-            if param.requires_grad:
-                nn.init.zeros_(param)
+        self.optimizer = optimizers[optimizer](self.model.parameters(), lr=learning_rate, momentum=0.9)
+        self.scheduler = lr_scheduler[scheduler](self.optimizer, gamma=0.95)
 
     def forward(self, batch_size, epochs):
-        average_loss = 0
         self.dataloader = DataLoader(self.dataset, batch_size=batch_size, shuffle=True, drop_last=True)
-
+        self.model.zero_grad()
         for epoch in range(epochs):
             progress_bar = tqdm(self.dataloader, desc=f"Epoch {epoch + 1}/{epochs}", ncols=100, dynamic_ncols=True)
 
+            average_loss = 0
             for data, label in progress_bar:
                 data, label = data.to(self.dev), label.to(self.dev)
                 self.optimizer.zero_grad()
@@ -91,11 +95,14 @@ class client(object):
                 progress_bar.set_postfix(loss=f"{loss.item():.4f}", refresh=True)
                 progress_bar.update(1)
 
+            self.scheduler.step()
             logger.info(f"client {self.id}'s {epoch}th epoch average loss: {average_loss / len(self.dataloader)}")
 
         return self.model.state_dict()
 
-    def update(self, global_epochs):
+    def update(self, global_epochs, global_parameters):
+        for param_tensor in self.model.state_dict():
+            self.model.state_dict()[param_tensor] = global_parameters[param_tensor]
         # new_lr = 0.001
         # self.optimizer.param_groups[0]["lr"] = new_lr
         pass

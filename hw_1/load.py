@@ -12,6 +12,7 @@ getdata(data,i,class_num):输入参数data为testfile的输出,class_num为客�
 
 
 def testfile():
+    random.seed()
     filename = "./test.csv"
     data = []
     replacedict = {
@@ -34,11 +35,11 @@ def testfile():
             data.append(rownew)
     data.pop(0)
     data_int = [list(map(float, row)) for row in data]
-    random.shuffle(data_int)
     return data_int
 
 
 def trainfile():
+    random.seed()
     filename = "./train.csv"
     data = []
     replacedict = {
@@ -61,7 +62,6 @@ def trainfile():
             data.append(rownew)
     data.pop(0)
     data_int = [list(map(float, row)) for row in data]
-    random.shuffle(data_int)
     return data_int
 
 
@@ -74,13 +74,16 @@ def actualsplit(data):
     return feature, label
 
 
-def getdata(train_data, test_data, i, weights):
-    A=preprocessing.StandardScaler()
-    train_feature , train_label = actualsplit(train_data)
+def getdata(train_data, test_data, i, weights, trainshuffle):
+    if trainshuffle == True:
+        random.seed()
+        random.shuffle(train_data)
+    A = preprocessing.StandardScaler()
+    train_feature, train_label = actualsplit(train_data)
     train_label = train_label[int(sum(weights[:i])) : int(sum(weights[: i + 1]))]
     train_feature = A.fit_transform(train_feature)
     train_feature = train_feature[int(sum(weights[:i])) : int(sum(weights[: i + 1]))]
 
-    test_feature , test_label = actualsplit(test_data)
+    test_feature, test_label = actualsplit(test_data)
     test_feature = A.transform(test_feature)
-    return train_feature, train_label , test_feature , test_label
+    return train_feature, train_label, test_feature, test_label

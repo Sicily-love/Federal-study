@@ -35,7 +35,7 @@ lr_scheduler = {
 
 
 def datasetBalanceAllocation(class_num, train_data, test_data):
-    clients_set={}
+    clients_set = {}
     s = 3001
     while s > 2900:
         avgnum = 3000 / class_num

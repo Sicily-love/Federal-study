@@ -8,7 +8,7 @@ import config_logger
 import torch.nn as nn
 from torch.utils.data import DataLoader
 from torch.utils.data import TensorDataset
-
+import matplotlib.pyplot as plt
 
 logger = config_logger.logger
 
@@ -28,13 +28,13 @@ parser.add_argument("--scheduler", choices=lr_scheduler, default="exp", help="le
 parser.add_argument("--hidden_dim", type=int, default=64, help="Hidden layer dimension (default: 64)")
 lr_scheduler
 
-
 args = parser.parse_args()
 
+# initialize clients set
 train_data = load.trainfile()
 test_data = load.testfile()
 CG = client.ClientsGroup(dev="cuda:0" if torch.cuda.is_available() else "cpu", class_num=args.num_clients)
-CG.clients_set, weights, test_feature, test_label = client.datasetBalanceAllocation(args.num_clients, train_data, test_data)
+CG.clients_set, weights, _ = client.datasetBalanceAllocation(args.num_clients, train_data, test_data)
 weights = np.array(weights) / sum(weights)
 
 Net = model.SimpleModel(13, args.hidden_dim, 1)
@@ -43,10 +43,17 @@ global_parameters = Net.state_dict()
 
 for client_id in range(args.num_clients):
     client_name = "client" + str(client_id)
-    CG.clients_set[client_name].model_config(args.hidden_dim, args.loss, args.optimizer, args.learning_rate, args.scheduler)
-
+    CG.clients_set[client_name].model_config(args.hidden_dim, args.loss, args.optimizer, args.learning_rate,
+                                             args.scheduler)
 
 for epoch in range(args.global_epochs):
+    # redistribute traindata
+    train_data = load.trainfile()
+    _, weights, tdslist = client.datasetBalanceAllocation(args.num_clients, train_data, test_data)
+    weights = np.array(weights) / sum(weights)
+    for i in range(args.num_clients):
+        CG.clients_set["client{}".format(i)].trainDataSet = tdslist[i]
+
     for param_tensor in global_parameters:
         global_parameters[param_tensor] -= global_parameters[param_tensor]
     states = []
@@ -64,7 +71,6 @@ for epoch in range(args.global_epochs):
         client_name = "client" + str(i)
         CG.clients_set[client_name].update(epoch, global_parameters)
 
-
 Net.load_state_dict(global_parameters)
 torch.save(Net.state_dict(), "model.pth")
 
@@ -74,6 +80,8 @@ def validate(model, dataloader, dev):
 
     average_loss = 0.0
     criterion = nn.MSELoss()
+    labels_all = []
+    predicted_all = []
 
     with torch.no_grad():
         for data, labels in dataloader:
@@ -83,17 +91,41 @@ def validate(model, dataloader, dev):
             loss = criterion(outputs, labels)
             print(loss)
             average_loss += loss.item()
+            for row in labels.tolist():
+                labels_all.append(row[0])
+            for row in outputs.tolist():
+                predicted_all.append(row[0])
 
     average_loss = average_loss / len(dataloader)
 
     print(f"Validation Loss: {average_loss:.4f}")
 
+    plt.scatter(range(len(labels_all)), labels_all, c='b', marker='+', label='actual temp')
+    plt.scatter(range(len(predicted_all)), predicted_all, c='r', marker='*', label='estimated temp')
+    plt.xlabel('day')
+    plt.ylabel('temp')
+    plt.legend()
+    plt.show()
+
     return average_loss
 
 
+# validate test data
+test_data = load.testfile()
+_, _, test_feature, test_label = load.getdata(train_data, test_data, 0, [3000], True)
 testdataset = TensorDataset(
     torch.tensor(test_feature, dtype=torch.float, requires_grad=False),
     torch.tensor(test_label, dtype=torch.float, requires_grad=False),
 )
-testdataloader = DataLoader(testdataset, batch_size=args.batch_size, shuffle=True, drop_last=True)
+testdataloader = DataLoader(testdataset, batch_size=args.batch_size, shuffle=False, drop_last=True)
+validate(Net, testdataloader, "cuda:0" if torch.cuda.is_available() else "cpu")
+
+# validate train data
+train_data = load.trainfile()
+test_feature, test_label, _, _ = load.getdata(train_data, test_data, 0, [3000], False)
+testdataset = TensorDataset(
+    torch.tensor(test_feature, dtype=torch.float, requires_grad=False),
+    torch.tensor(test_label, dtype=torch.float, requires_grad=False),
+)
+testdataloader = DataLoader(testdataset, batch_size=args.batch_size, shuffle=False, drop_last=True)
 validate(Net, testdataloader, "cuda:0" if torch.cuda.is_available() else "cpu")

@@ -35,7 +35,6 @@ def testfile():
             data.append(rownew)
     data.pop(0)
     data_int = [list(map(float, row)) for row in data]
-    random.shuffle(data_int)
     return data_int
 
 
@@ -63,7 +62,6 @@ def trainfile():
             data.append(rownew)
     data.pop(0)
     data_int = [list(map(float, row)) for row in data]
-    random.shuffle(data_int)
     return data_int
 
 
@@ -76,9 +74,10 @@ def actualsplit(data):
     return feature, label
 
 
-def getdata(train_data, test_data, i, weights):
-    random.seed()
-    random.shuffle(train_data)
+def getdata(train_data, test_data, i, weights, trainshuffle):
+    if trainshuffle == True:
+        random.seed()
+        random.shuffle(train_data)
     A = preprocessing.StandardScaler()
     train_feature, train_label = actualsplit(train_data)
     train_label = train_label[int(sum(weights[:i])) : int(sum(weights[: i + 1]))]

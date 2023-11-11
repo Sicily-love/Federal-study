@@ -44,15 +44,17 @@ def datasetBalanceAllocation(class_num, train_data, test_data):
         weights_list.append(3000 - sum(weights_list))
         s = sum(weights_list[: class_num - 1])
 
+    tdslist=[]
     for i in range(class_num):
-        train_feature, train_label, test_feature, test_label = load.getdata(train_data, test_data, i, weights_list)
+        train_feature, train_label, _, _ = load.getdata(train_data, test_data, i, weights_list, True)
         trainDataSet = TensorDataset(
             torch.tensor(train_feature, dtype=torch.float, requires_grad=True),
             torch.tensor(train_label, dtype=torch.float, requires_grad=True),
         )
+        tdslist.append(trainDataSet)
         someone = client(trainDataSet, i + 1, torch.device("cuda:0" if torch.cuda.is_available() else "cpu"))
         clients_set["client{}".format(i)] = someone
-    return clients_set, weights_list, test_feature, test_label
+    return clients_set, weights_list ,tdslist
 
 
 class ClientsGroup(object):

@@ -1,6 +1,5 @@
 import csv
 import random
-from sklearn import preprocessing
 
 
 def testfile():
@@ -66,7 +65,7 @@ def actualsplit(data):
     return feature, label
 
 
-def getdata(data, id, mode, weights):
+def getdata(data, id, mode, weights, scaler):
     """get train/test data
 
     Args:
@@ -78,14 +77,16 @@ def getdata(data, id, mode, weights):
     Returns:
         tuple: (Standard feature, label)
     """
-    A = preprocessing.StandardScaler()
     if mode == "train":
         feature, label = actualsplit(data)
         label = label[int(sum(weights[:id])) : int(sum(weights[: id + 1]))]
-        feature = A.fit_transform(feature)
+        feature = scaler.fit_transform(feature)
         feature = feature[int(sum(weights[:id])) : int(sum(weights[: id + 1]))]
     elif mode == "test":
         feature, label = actualsplit(data)
-        feature = A.fit_transform(feature)
+        feature = scaler.transform(feature)
+    elif mode == "testtrain":
+        feature, label = actualsplit(data)
+        feature = scaler.fit_transform(feature)
 
     return feature, label

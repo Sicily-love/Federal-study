@@ -9,6 +9,7 @@ import torch.nn as nn
 import matplotlib.pyplot as plt
 from torch.utils.data import DataLoader
 from torch.utils.data import TensorDataset
+from sklearn import preprocessing
 
 
 loss_functions = ["mse", "cross_entropy", "huber_loss", "negative_log_likelihood"]
@@ -55,9 +56,10 @@ def main(args):
     # initialize clients set
     train_data = load.trainfile()
     test_data = load.testfile()
+    scaler = preprocessing.StandardScaler()
     CG = client.ClientsGroup(dev="cuda:0" if torch.cuda.is_available() else "cpu", class_num=args.num_clients)
     weights, train_data = client.dataset_Balance(args.num_clients, train_data)
-    CG.clients_set = client.data_Allocation_init(train_data, weights)
+    CG.clients_set = client.data_Allocation_init(train_data, weights, scaler)
     weights = np.array(weights) / sum(weights)
 
     Net = model.SimpleModel(13, args.hidden_dim, 1)
@@ -88,14 +90,14 @@ def main(args):
         for i in range(args.num_clients):
             client_name = "client" + str(i)
             weights, train_data = client.dataset_Balance(args.num_clients, train_data)
-            CG.clients_set[client_name].update(global_parameters, train_data, weights)
+            CG.clients_set[client_name].update(global_parameters, train_data, weights, scaler)
 
     Net.load_state_dict(global_parameters)
     torch.save(Net.state_dict(), "model.pth")
 
     # validate test data
     test_data = load.testfile()
-    test_feature, test_label = load.getdata(test_data, None, "test", None)
+    test_feature, test_label = load.getdata(test_data, None, "test", None, scaler)
     testdataset = TensorDataset(
         torch.tensor(test_feature, dtype=torch.float, requires_grad=False),
         torch.tensor(test_label, dtype=torch.float, requires_grad=False),
@@ -105,7 +107,7 @@ def main(args):
 
     # validate train data
     train_data = load.trainfile()
-    train_feature, train_label = load.getdata(train_data, 0, "test", [3000])
+    train_feature, train_label = load.getdata(train_data, 0, "testtrain", [3000], scaler)
     traindataset = TensorDataset(
         torch.tensor(train_feature, dtype=torch.float, requires_grad=False),
         torch.tensor(train_label, dtype=torch.float, requires_grad=False),

@@ -50,10 +50,10 @@ def dataset_Balance(class_num, data):
     return weights, data
 
 
-def data_Allocation_init(data, weights):
+def data_Allocation_init(data, weights, scaler):
     clients_set = {}
     for i in range(len(weights)):
-        feature, label = load.getdata(data, i, "train", weights)
+        feature, label = load.getdata(data, i, "train", weights, scaler)
         trainDataSet = TensorDataset(
             torch.tensor(feature, dtype=torch.float, requires_grad=True),
             torch.tensor(label, dtype=torch.float, requires_grad=True),
@@ -89,7 +89,7 @@ class client(object):
         self.model.zero_grad()
         for epoch in range(epochs):
             progress_bar = tqdm(
-                self.dataloader, desc=f"Clinet {self.id}'s Epoch {epoch + 1}/{epochs}", ncols=100, dynamic_ncols=True
+                self.dataloader, desc=f"Client {self.id}'s Epoch {epoch + 1}/{epochs}", ncols=100, dynamic_ncols=True
             )
 
             average_loss = 0
@@ -110,11 +110,11 @@ class client(object):
 
         return self.model.state_dict()
 
-    def update(self, global_parameters, data, weights):
+    def update(self, global_parameters, data, weights, scaler):
         for param_tensor in self.model.state_dict():
             self.model.state_dict()[param_tensor] = global_parameters[param_tensor]
 
-        feature, label = load.getdata(data, self.id, "train", weights)
+        feature, label = load.getdata(data, self.id, "train", weights, scaler)
         DataSet = TensorDataset(
             torch.tensor(feature, dtype=torch.float, requires_grad=True),
             torch.tensor(label, dtype=torch.float, requires_grad=True),

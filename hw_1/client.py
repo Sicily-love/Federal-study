@@ -89,7 +89,7 @@ class client(object):
         self.model.zero_grad()
         for epoch in range(epochs):
             progress_bar = tqdm(
-                self.dataloader, desc=f"Clinet {self.id}'s Epoch {epoch + 1}/{epochs}", ncols=100, dynamic_ncols=True
+                self.dataloader, desc=f"Client {self.id}'s Epoch {epoch + 1}/{epochs}", ncols=100, dynamic_ncols=True
             )
 
             average_loss = 0

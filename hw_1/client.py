@@ -1,6 +1,7 @@
 import load
 import torch
 import model
+import random
 import numpy as np
 import config_logger
 from tqdm import tqdm
@@ -34,27 +35,32 @@ lr_scheduler = {
 }
 
 
-def datasetBalanceAllocation(class_num, train_data, test_data):
-    clients_set = {}
+def dataset_Balance(class_num, data):
+    np.random.seed()
     s = 3001
     while s > 2900:
         avgnum = 3000 / class_num
-        weights_list = [avgnum] * (class_num - 1)
-        weights_list = np.sum([weights_list, np.random.randint(-0.5 * avgnum, 0.5 * avgnum, class_num - 1)], axis=0).tolist()
-        weights_list.append(3000 - sum(weights_list))
-        s = sum(weights_list[: class_num - 1])
+        weights = [avgnum] * (class_num - 1)
+        weights = np.sum([weights, np.random.randint(-0.5 * avgnum, 0.5 * avgnum, class_num - 1)], axis=0).tolist()
+        weights.append(3000 - sum(weights))
+        s = sum(weights[: class_num - 1])
 
-    tdslist=[]
-    for i in range(class_num):
-        train_feature, train_label, _, _ = load.getdata(train_data, test_data, i, weights_list, True)
+    random.seed()
+    random.shuffle(data)
+    return weights, data
+
+
+def data_Allocation_init(data, weights, scaler):
+    clients_set = {}
+    for i in range(len(weights)):
+        feature, label = load.getdata(data, i, "train", weights, scaler)
         trainDataSet = TensorDataset(
-            torch.tensor(train_feature, dtype=torch.float, requires_grad=True),
-            torch.tensor(train_label, dtype=torch.float, requires_grad=True),
+            torch.tensor(feature, dtype=torch.float, requires_grad=True),
+            torch.tensor(label, dtype=torch.float, requires_grad=True),
         )
-        tdslist.append(trainDataSet)
-        someone = client(trainDataSet, i + 1, torch.device("cuda:0" if torch.cuda.is_available() else "cpu"))
+        someone = client(trainDataSet, i, torch.device("cuda:0" if torch.cuda.is_available() else "cpu"))
         clients_set["client{}".format(i)] = someone
-    return clients_set, weights_list ,tdslist
+    return clients_set
 
 
 class ClientsGroup(object):
@@ -65,8 +71,8 @@ class ClientsGroup(object):
 
 
 class client(object):
-    def __init__(self, trainDataSet, client_id, dev):
-        self.dataset = trainDataSet
+    def __init__(self, DataSet, client_id, dev):
+        self.dataset = DataSet
         self.id = client_id
         self.dev = dev
         self.dataloader = None
@@ -82,7 +88,9 @@ class client(object):
         self.dataloader = DataLoader(self.dataset, batch_size=batch_size, shuffle=True, drop_last=True)
         self.model.zero_grad()
         for epoch in range(epochs):
-            progress_bar = tqdm(self.dataloader, desc=f"Epoch {epoch + 1}/{epochs}", ncols=100, dynamic_ncols=True)
+            progress_bar = tqdm(
+                self.dataloader, desc=f"Clinet {self.id}'s Epoch {epoch + 1}/{epochs}", ncols=100, dynamic_ncols=True
+            )
 
             average_loss = 0
             for data, label in progress_bar:
@@ -102,9 +110,14 @@ class client(object):
 
         return self.model.state_dict()
 
-    def update(self, global_epochs, global_parameters):
+    def update(self, global_parameters, data, weights, scaler):
         for param_tensor in self.model.state_dict():
             self.model.state_dict()[param_tensor] = global_parameters[param_tensor]
-        # new_lr = 0.001
-        # self.optimizer.param_groups[0]["lr"] = new_lr
+
+        feature, label = load.getdata(data, self.id, "train", weights, scaler)
+        DataSet = TensorDataset(
+            torch.tensor(feature, dtype=torch.float, requires_grad=True),
+            torch.tensor(label, dtype=torch.float, requires_grad=True),
+        )
+        self.dataset = DataSet
         pass
